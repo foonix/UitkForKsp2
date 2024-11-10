@@ -1,286 +1,290 @@
-﻿using UnityEngine;
+﻿using JetBrains.Annotations;
+using System;
+using UnityEngine;
 using UnityEngine.UIElements;
+using UnityObject = UnityEngine.Object;
 
-namespace UitkForKsp2.API;
-
-/// <summary>
-/// Contains methods for creating UIDocument windows.
-/// </summary>
-[PublicAPI]
-public static class Window
+namespace UitkForKsp2.API
 {
-    private const string UIMainCanvasPath = "GameManager/Default Game Instance(Clone)/UI Manager(Clone)/Main Canvas";
-
     /// <summary>
-    /// Creates an empty UIDocument.
+    /// Contains methods for creating UIDocument windows.
     /// </summary>
-    /// <param name="options">Options for creating the window.</param>
-    /// <param name="root">Root element of the UIDocument. If null, a new empty VisualElement is created.</param>
-    /// <returns>New empty UIDocument.</returns>
-    public static UIDocument Create(WindowOptions options, VisualElement root = null)
+    [PublicAPI]
+    public static class Window
     {
-        var document = CreateInternal(options);
+        private const string UIMainCanvasPath = "GameManager/Default Game Instance(Clone)/UI Manager(Clone)/Main Canvas";
 
-        root ??= Element.Root();
-        SetupRootElement(root, options);
-
-        document.m_RootVisualElement = root;
-        document.AddRootVisualElementToTree();
-
-        return document;
-    }
-
-    /// <summary>
-    /// Creates a new UIDocument from a UXML asset.
-    /// </summary>
-    /// <param name="options">Options for creating the window.</param>
-    /// <param name="uxml">UXML asset containing the UI.</param>
-    /// <returns>UIDocument with the UI defined in UXML.</returns>
-    public static UIDocument Create(WindowOptions options, VisualTreeAsset uxml)
-    {
-        var document = CreateInternal(options);
-
-        document.sourceAsset = uxml;
-        document.RecreateUI();
-
-        if (document.rootVisualElement.hierarchy.childCount > 0)
+        /// <summary>
+        /// Creates an empty UIDocument.
+        /// </summary>
+        /// <param name="options">Options for creating the window.</param>
+        /// <param name="root">Root element of the UIDocument. If null, a new empty VisualElement is created.</param>
+        /// <returns>New empty UIDocument.</returns>
+        public static UIDocument Create(WindowOptions options, VisualElement root = null)
         {
-            var rootElement = document.rootVisualElement.hierarchy.ElementAt(0);
-            SetupRootElement(rootElement, options);
+            var document = CreateInternal(options);
+
+            root ??= Element.Root();
+            SetupRootElement(root, options);
+
+            document.m_RootVisualElement = root;
+            document.AddRootVisualElementToTree();
+
+            return document;
         }
 
-        return document;
-    }
-
-    private static UIDocument CreateInternal(WindowOptions options)
-    {
-        var gameObject = new GameObject(options.WindowId ?? $"ui-{Guid.NewGuid()}");
-        UnityObject.DontDestroyOnLoad(gameObject);
-        gameObject.hideFlags |= HideFlags.HideAndDontSave;
-
-        var document = gameObject.AddComponent<UIDocument>();
-
-        document.panelSettings = UitkForKsp2Plugin.PanelSettings;
-        document.enabled = true;
-
-        var parent = options.Parent;
-        if (parent == null && GameObject.Find(UIMainCanvasPath) is var uiMainCanvas)
+        /// <summary>
+        /// Creates a new UIDocument from a UXML asset.
+        /// </summary>
+        /// <param name="options">Options for creating the window.</param>
+        /// <param name="uxml">UXML asset containing the UI.</param>
+        /// <returns>UIDocument with the UI defined in UXML.</returns>
+        public static UIDocument Create(WindowOptions options, VisualTreeAsset uxml)
         {
-            if (uiMainCanvas != null)
+            var document = CreateInternal(options);
+
+            document.sourceAsset = uxml;
+            document.RecreateUI();
+
+            if (document.rootVisualElement.hierarchy.childCount > 0)
             {
-                parent = uiMainCanvas.transform;
+                var rootElement = document.rootVisualElement.hierarchy.ElementAt(0);
+                SetupRootElement(rootElement, options);
             }
-            else
+
+            return document;
+        }
+
+        private static UIDocument CreateInternal(WindowOptions options)
+        {
+            var gameObject = new GameObject(options.WindowId ?? $"ui-{Guid.NewGuid()}");
+            UnityObject.DontDestroyOnLoad(gameObject);
+            gameObject.hideFlags |= HideFlags.HideAndDontSave;
+
+            var document = gameObject.AddComponent<UIDocument>();
+
+            document.panelSettings = UitkForKsp2Plugin.PanelSettings;
+            document.enabled = true;
+
+            var parent = options.Parent;
+            if (parent == null && GameObject.Find(UIMainCanvasPath) is var uiMainCanvas)
             {
-                UitkForKsp2Plugin.Logger.LogWarning(
-                    $"Could not assign default parent to new window with ID {options.WindowId}"
-                );
+                if (uiMainCanvas != null)
+                {
+                    parent = uiMainCanvas.transform;
+                }
+                else
+                {
+                    UitkForKsp2Plugin.Logger.LogWarning(
+                        $"Could not assign default parent to new window with ID {options.WindowId}"
+                    );
+                }
             }
+
+            gameObject.transform.parent = parent;
+            gameObject.SetActive(true);
+
+            return document;
         }
 
-        gameObject.transform.parent = parent;
-        gameObject.SetActive(true);
-
-        return document;
-    }
-
-    private static void SetupRootElement(VisualElement root, WindowOptions options)
-    {
-        if (options.MoveOptions.IsMovingEnabled)
+        private static void SetupRootElement(VisualElement root, WindowOptions options)
         {
-            root.MakeDraggable(options.MoveOptions.CheckScreenBounds);
-        }
+            if (options.MoveOptions.IsMovingEnabled)
+            {
+                root.MakeDraggable(options.MoveOptions.CheckScreenBounds);
+            }
 
-        if (options.IsHidingEnabled)
-        {
-            root.EnableHiding();
-        }
+            if (options.IsHidingEnabled)
+            {
+                root.EnableHiding();
+            }
 
-        if (options.DisableGameInputForTextFields)
-        {
-            root.Query<TextField>().ForEach(textField => textField.DisableGameInputOnFocus());
-        }
+            if (options.DisableGameInputForTextFields)
+            {
+                root.Query<TextField>().ForEach(textField => textField.DisableGameInputOnFocus());
+            }
 
-        // Display window within screen bounds by default
-        root.SetDefaultPosition(windowSize =>
-            new Vector2(
-                Mathf.Clamp(
-                    root.transform.position.x,
-                    0,
-                    Configuration.CurrentScreenWidth - windowSize.x
-                ),
-                Mathf.Clamp(
-                    root.transform.position.y,
-                    0,
-                    Configuration.CurrentScreenHeight - windowSize.y
+            // Display window within screen bounds by default
+            root.SetDefaultPosition(windowSize =>
+                new Vector2(
+                    Mathf.Clamp(
+                        root.transform.position.x,
+                        0,
+                        Configuration.CurrentScreenWidth - windowSize.x
+                    ),
+                    Mathf.Clamp(
+                        root.transform.position.y,
+                        0,
+                        Configuration.CurrentScreenHeight - windowSize.y
+                    )
                 )
-            )
-        );
-    }
+            );
+        }
 
-    #region Deprecated
+        #region Deprecated
 
-    /// <summary>
-    /// Creates an empty UIDocument with a pre-styled root element.
-    /// </summary>
-    /// <param name="root">Pre-styled root element of the UIDocument.</param>
-    /// <param name="enableHiding">Should window hiding with F2 be enabled?</param>
-    /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
-    /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
-    /// <param name="makeDraggable">Can the window be moved by dragging?</param>
-    /// <returns>New empty UIDocument.</returns>
-    [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions) instead.")]
-    public static UIDocument Create(
-        out VisualElement root,
-        bool enableHiding,
-        string windowId = null,
-        Transform parent = null,
-        bool makeDraggable = false
-    )
-    {
-        var moveOptions = MoveOptions.Default;
-        moveOptions.IsMovingEnabled = makeDraggable;
-        moveOptions.CheckScreenBounds = makeDraggable;
-
-        var options = WindowOptions.Default;
-        options.WindowId = windowId;
-        options.Parent = parent;
-        options.IsHidingEnabled = enableHiding;
-        options.MoveOptions = moveOptions;
-
-        var window = Create(options);
-
-        root = window.rootVisualElement;
-        return window;
-    }
-
-    /// <summary>
-    /// Creates an empty UIDocument with a pre-styled root element.
-    /// </summary>
-    /// <param name="root">Pre-styled root element of the UIDocument.</param>
-    /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
-    /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
-    /// <param name="makeDraggable">Can the window be moved by dragging?</param>
-    /// <returns>New empty UIDocument.</returns>
-    [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions) instead.")]
-    public static UIDocument Create(
-        out VisualElement root,
-        string windowId = null,
-        Transform parent = null,
-        bool makeDraggable = false
-    )
-    {
-        return Create(out root, true, windowId, parent, makeDraggable);
-    }
-
-    /// <summary>
-    /// Creates a new UIDocument from a UXML asset.
-    /// </summary>
-    /// <param name="uxml">UXML asset containing the UI.</param>
-    /// <param name="enableHiding">Should window hiding with F2 be enabled?</param>
-    /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
-    /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
-    /// <param name="makeDraggable">Can the window be moved by dragging?</param>
-    /// <returns>UIDocument with the UI defined in UXML.</returns>
-    [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualTreeAsset) instead.")]
-    public static UIDocument CreateFromUxml(
-        VisualTreeAsset uxml,
-        bool enableHiding,
-        string windowId = null,
-        Transform parent = null,
-        bool makeDraggable = false
-    )
-    {
-        var moveOptions = MoveOptions.Default;
-        moveOptions.IsMovingEnabled = makeDraggable;
-        moveOptions.CheckScreenBounds = makeDraggable;
-
-        var options = WindowOptions.Default;
-        options.WindowId = windowId;
-        options.Parent = parent;
-        options.IsHidingEnabled = enableHiding;
-        options.MoveOptions = moveOptions;
-
-        return Create(options, uxml);
-    }
-
-    /// <summary>
-    /// Creates a new UIDocument from a UXML asset.
-    /// </summary>
-    /// <param name="uxml">UXML asset containing the UI.</param>
-    /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
-    /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
-    /// <param name="makeDraggable">Can the window be moved by dragging?</param>
-    /// <returns>UIDocument with the UI defined in UXML.</returns>
-    [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualTreeAsset) instead.")]
-    public static UIDocument CreateFromUxml(
-        VisualTreeAsset uxml,
-        string windowId = null,
-        Transform parent = null,
-        bool makeDraggable = false
-    )
-    {
-        return CreateFromUxml(uxml, true, windowId, parent, makeDraggable);
-    }
-
-    /// <summary>
-    /// Creates a new UIDocument from an existing root VisualElement. Doesn't include default root style.
-    /// </summary>
-    /// <param name="element">Root element of the UIDocument.</param>
-    /// <param name="enableHiding">Should window hiding with F2 be enabled?</param>
-    /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
-    /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
-    /// <param name="makeDraggable">Can the window be moved by dragging?</param>
-    /// <returns>New UIDocument with the element parameter as root.</returns>
-    [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualElement) instead.")]
-    public static UIDocument CreateFromElement(
-        VisualElement element,
-        bool enableHiding,
-        string windowId = null,
-        Transform parent = null,
-        bool makeDraggable = false
-    )
-    {
-        var moveOptions = MoveOptions.Default;
-        moveOptions.IsMovingEnabled = makeDraggable;
-        moveOptions.CheckScreenBounds = makeDraggable;
-
-        var options = WindowOptions.Default;
-        options.WindowId = windowId;
-        options.Parent = parent;
-        options.IsHidingEnabled = enableHiding;
-        options.MoveOptions = moveOptions;
-
-        return Create(options, element);
-    }
-
-    /// <summary>
-    /// Creates a new UIDocument from an existing root VisualElement. Doesn't include default root style.
-    /// </summary>
-    /// <param name="element">Root element of the UIDocument.</param>
-    /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
-    /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
-    /// <param name="makeDraggable">Can the window be moved by dragging?</param>
-    /// <returns>New UIDocument with the element parameter as root.</returns>
-    [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualElement) instead.")]
-    public static UIDocument CreateFromElement(
-        VisualElement element,
-        string windowId = null,
-        Transform parent = null,
-        bool makeDraggable = false
-    )
-    {
-        return CreateFromElement(element, true, windowId, parent, makeDraggable);
-    }
-
-    private static UIDocument CreateInternal(string windowId = null, Transform parent = null)
-    {
-        return CreateInternal(new WindowOptions
+        /// <summary>
+        /// Creates an empty UIDocument with a pre-styled root element.
+        /// </summary>
+        /// <param name="root">Pre-styled root element of the UIDocument.</param>
+        /// <param name="enableHiding">Should window hiding with F2 be enabled?</param>
+        /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
+        /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
+        /// <param name="makeDraggable">Can the window be moved by dragging?</param>
+        /// <returns>New empty UIDocument.</returns>
+        [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions) instead.")]
+        public static UIDocument Create(
+            out VisualElement root,
+            bool enableHiding,
+            string windowId = null,
+            Transform parent = null,
+            bool makeDraggable = false
+        )
         {
-            WindowId = windowId,
-            Parent = parent
-        });
-    }
+            var moveOptions = MoveOptions.Default;
+            moveOptions.IsMovingEnabled = makeDraggable;
+            moveOptions.CheckScreenBounds = makeDraggable;
 
-    #endregion
+            var options = WindowOptions.Default;
+            options.WindowId = windowId;
+            options.Parent = parent;
+            options.IsHidingEnabled = enableHiding;
+            options.MoveOptions = moveOptions;
+
+            var window = Create(options);
+
+            root = window.rootVisualElement;
+            return window;
+        }
+
+        /// <summary>
+        /// Creates an empty UIDocument with a pre-styled root element.
+        /// </summary>
+        /// <param name="root">Pre-styled root element of the UIDocument.</param>
+        /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
+        /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
+        /// <param name="makeDraggable">Can the window be moved by dragging?</param>
+        /// <returns>New empty UIDocument.</returns>
+        [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions) instead.")]
+        public static UIDocument Create(
+            out VisualElement root,
+            string windowId = null,
+            Transform parent = null,
+            bool makeDraggable = false
+        )
+        {
+            return Create(out root, true, windowId, parent, makeDraggable);
+        }
+
+        /// <summary>
+        /// Creates a new UIDocument from a UXML asset.
+        /// </summary>
+        /// <param name="uxml">UXML asset containing the UI.</param>
+        /// <param name="enableHiding">Should window hiding with F2 be enabled?</param>
+        /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
+        /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
+        /// <param name="makeDraggable">Can the window be moved by dragging?</param>
+        /// <returns>UIDocument with the UI defined in UXML.</returns>
+        [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualTreeAsset) instead.")]
+        public static UIDocument CreateFromUxml(
+            VisualTreeAsset uxml,
+            bool enableHiding,
+            string windowId = null,
+            Transform parent = null,
+            bool makeDraggable = false
+        )
+        {
+            var moveOptions = MoveOptions.Default;
+            moveOptions.IsMovingEnabled = makeDraggable;
+            moveOptions.CheckScreenBounds = makeDraggable;
+
+            var options = WindowOptions.Default;
+            options.WindowId = windowId;
+            options.Parent = parent;
+            options.IsHidingEnabled = enableHiding;
+            options.MoveOptions = moveOptions;
+
+            return Create(options, uxml);
+        }
+
+        /// <summary>
+        /// Creates a new UIDocument from a UXML asset.
+        /// </summary>
+        /// <param name="uxml">UXML asset containing the UI.</param>
+        /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
+        /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
+        /// <param name="makeDraggable">Can the window be moved by dragging?</param>
+        /// <returns>UIDocument with the UI defined in UXML.</returns>
+        [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualTreeAsset) instead.")]
+        public static UIDocument CreateFromUxml(
+            VisualTreeAsset uxml,
+            string windowId = null,
+            Transform parent = null,
+            bool makeDraggable = false
+        )
+        {
+            return CreateFromUxml(uxml, true, windowId, parent, makeDraggable);
+        }
+
+        /// <summary>
+        /// Creates a new UIDocument from an existing root VisualElement. Doesn't include default root style.
+        /// </summary>
+        /// <param name="element">Root element of the UIDocument.</param>
+        /// <param name="enableHiding">Should window hiding with F2 be enabled?</param>
+        /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
+        /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
+        /// <param name="makeDraggable">Can the window be moved by dragging?</param>
+        /// <returns>New UIDocument with the element parameter as root.</returns>
+        [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualElement) instead.")]
+        public static UIDocument CreateFromElement(
+            VisualElement element,
+            bool enableHiding,
+            string windowId = null,
+            Transform parent = null,
+            bool makeDraggable = false
+        )
+        {
+            var moveOptions = MoveOptions.Default;
+            moveOptions.IsMovingEnabled = makeDraggable;
+            moveOptions.CheckScreenBounds = makeDraggable;
+
+            var options = WindowOptions.Default;
+            options.WindowId = windowId;
+            options.Parent = parent;
+            options.IsHidingEnabled = enableHiding;
+            options.MoveOptions = moveOptions;
+
+            return Create(options, element);
+        }
+
+        /// <summary>
+        /// Creates a new UIDocument from an existing root VisualElement. Doesn't include default root style.
+        /// </summary>
+        /// <param name="element">Root element of the UIDocument.</param>
+        /// <param name="windowId">Unique ID for the game object. Autogenerated if null.</param>
+        /// <param name="parent">Parent game object transform. Uses "UI Manager(Clone)/Main Canvas" if null.</param>
+        /// <param name="makeDraggable">Can the window be moved by dragging?</param>
+        /// <returns>New UIDocument with the element parameter as root.</returns>
+        [Obsolete("This method will be removed in 3.0.0. Use Create(WindowOptions, VisualElement) instead.")]
+        public static UIDocument CreateFromElement(
+            VisualElement element,
+            string windowId = null,
+            Transform parent = null,
+            bool makeDraggable = false
+        )
+        {
+            return CreateFromElement(element, true, windowId, parent, makeDraggable);
+        }
+
+        private static UIDocument CreateInternal(string windowId = null, Transform parent = null)
+        {
+            return CreateInternal(new WindowOptions
+            {
+                WindowId = windowId,
+                Parent = parent
+            });
+        }
+
+        #endregion
+    }
 }

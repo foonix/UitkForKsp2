@@ -3,20 +3,21 @@ using HarmonyLib;
 using UitkForKsp2.API;
 using UnityEngine.UIElements;
 
-namespace UitkForKsp2.Patches;
-
-[HarmonyPatch]
-internal static class CustomElementsPatch
+namespace UitkForKsp2.Patches
 {
-#pragma warning disable CS0618
-    [HarmonyPatch(typeof(VisualElementFactoryRegistry), nameof(VisualElementFactoryRegistry.RegisterUserFactories))]
-    [HarmonyPostfix]
-    private static void VisualElementFactoryRegistry_RegisterUserFactories()
+    [HarmonyPatch]
+    internal static class CustomElementsPatch
     {
-        foreach (var plugin in Chainloader.Plugins)
+#pragma warning disable CS0618
+        [HarmonyPatch("VisualElementFactoryRegistry", "RegisterUserFactories")]
+        [HarmonyPostfix]
+        private static void VisualElementFactoryRegistry_RegisterUserFactories()
         {
-            CustomControls.RegisterFromAssembly(plugin.GetType().Assembly);
+            foreach (var plugin in Chainloader.Plugins)
+            {
+                CustomControls.RegisterFromAssembly(plugin.GetType().Assembly);
+            }
         }
-    }
 #pragma warning restore CS0618
+    }
 }

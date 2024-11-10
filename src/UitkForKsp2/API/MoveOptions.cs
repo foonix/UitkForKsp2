@@ -1,26 +1,27 @@
-﻿namespace UitkForKsp2.API;
-
-/// <summary>
-/// Options for allowing an element to be dragged.
-/// </summary>
-public struct MoveOptions
+﻿namespace UitkForKsp2.API
 {
     /// <summary>
-    /// Should the element be moved by dragging?
+    /// Options for allowing an element to be dragged.
     /// </summary>
-    public bool IsMovingEnabled { get; set; }
-
-    /// <summary>
-    /// Should the element be moved only within the screen bounds?
-    /// </summary>
-    public bool CheckScreenBounds { get; set; }
-
-    /// <summary>
-    /// Default options for dragging an element.
-    /// </summary>
-    public static MoveOptions Default => new()
+    public struct MoveOptions
     {
-        IsMovingEnabled = true,
-        CheckScreenBounds = true
-    };
+        /// <summary>
+        /// Should the element be moved by dragging?
+        /// </summary>
+        public bool IsMovingEnabled { get; set; }
+
+        /// <summary>
+        /// Should the element be moved only within the screen bounds?
+        /// </summary>
+        public bool CheckScreenBounds { get; set; }
+
+        /// <summary>
+        /// Default options for dragging an element.
+        /// </summary>
+        public static MoveOptions Default => new()
+        {
+            IsMovingEnabled = true,
+            CheckScreenBounds = true
+        };
+    }
 }
